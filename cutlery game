@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utensil Sorcery: Combat Survivor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0d0e12;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 40px rgba(255, 0, 85, 0.15);
+        }
+        canvas {
+            background-color: #14151f;
+            display: block;
+            border: 4px solid #2a2d3d;
+            border-radius: 8px;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .hud-text {
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+        }
+        #xp-bar-container {
+            width: 100%;
+            height: 14px;
+            background-color: rgba(25, 27, 38, 0.8);
+            border: 2px solid #3d415a;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        #xp-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #a55eea, #4b7bec);
+            transition: width 0.1s ease;
+        }
+        #moves-hotbar {
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+            background: rgba(13, 14, 18, 0.85);
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 2px solid #2a2d3d;
+        }
+        .move-slot {
+            width: 60px;
+            height: 60px;
+            background: #1c1d26;
+            border: 2px solid #4b526d;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .move-slot.active-ready {
+            border-color: #ff4757;
+            box-shadow: 0 0 8px rgba(255, 71, 87, 0.4);
+        }
+        .move-name {
+            font-size: 8px;
+            text-align: center;
+            font-weight: bold;
+            z-index: 2;
+            padding: 2px;
+        }
+        .move-cooldown-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(255, 71, 87, 0.35);
+            z-index: 1;
+            height: 0%;
+            transition: height 0.1s linear;
+        }
+        #screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 11, 15, 0.97);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            border-radius: 8px;
+            z-index: 10;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .roster {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+            max-width: 850px;
+        }
+        .char-card {
+            background: #1c1d26;
+            border: 2px solid #3d415a;
+            border-radius: 6px;
+            padding: 10px;
+            width: 190px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .char-card:hover, .char-card.selected {
+            border-color: #ff4757;
+            background: #252736;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 12px rgba(255, 71, 87, 0.25);
+        }
+        .char-card h3 { margin: 0 0 5px 0; color: #ff4757; font-size: 14px; }
+        .char-card p { font-size: 10px; color: #a5b1c2; margin: 3px 0; }
+        .btn {
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 10px rgba(255, 71, 87, 0.4);
+            margin-top: 10px;
+        }
+        .btn:hover { background-color: #ff6b81; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="900" height="650"></canvas>
+        
+        <div id="ui-layer">
+            <div>
+                <div id="xp-bar-container">
+                    <div id="xp-bar"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div id="level-display" class="hud-text">SORCERY GRADE: 1</div>
+                    <div id="score-display" class="hud-text">SPORKS EXORCISED: 0</div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div id="hp-display" class="hud-text" style="color: #ff4757; min-width: 180px;">HP: 100 / 100</div>
+                
+                <div id="moves-hotbar">
+                    <div class="move-slot" id="slot-weapon">
+                        <div class="move-name" id="name-weapon">M1 Basic</div>
+                        <div class="move-cooldown-overlay" id="cd-weapon"></div>
+                    </div>
+                    <div class="move-slot" id="slot-move1">
+                        <div class="move-name" id="name-move1">Skill 1</div>
+                        <div class="move-cooldown-overlay" id="cd-move1"></div>
+                    </div>
+                    <div class="move-slot" id="slot-move2">
+                        <div class="move-name" id="name-move2">Skill 2</div>
+                        <div class="move-cooldown-overlay" id="cd-move2"></div>
+                    </div>
+                </div>
+
+                <div id="timer-display" class="hud-text" style="min-width: 120px; text-align: right;">TIME: 00:00</div>
+            </div>
+        </div>
+
+        <div id="screen-overlay">
+            <h1 id="overlay-title" style="font-size: 24px; letter-spacing: 2px; margin: 0;">SELECT YOUR CURSED UTENSIL</h1>
+            <div id="selection-view" class="roster">
+                <div class="char-card selected" data-char="billy">
+                    <h3>Billy</h3>
+                    <p>⚡ Balanced Runner</p>
+                    <p>⚔️ 1: 10-Fold Cut</p>
+                    <p>🔥 2: Soy Domain</p>
+                </div>
+                <div class="char-card" data-char="gojo">
+                    <h3>Gojo Spoon</h3>
+                    <p>🔵 Spatial Pulls</p>
+                    <p>⚔️ 1: Ladle Pull</p>
+                    <p>🔥 2: Soup Push</p>
+                </div>
+                <div class="char-card" data-char="sukuna">
+                    <h3>Sukuna Fork</h3>
+                    <p>🩸 Global Cleaves</p>
+                    <p>⚔️ 1: Cleave Strike</p>
+                    <p>🔥 2: Dismantle Rush</p>
+                </div>
+                <div class="char-card" data-char="zoro">
+                    <h3>Zoro Sticks</h3>
+                    <p>🟢 Three-Chopstick Style</p>
+                    <p>⚔️ 1: Oni Giri</p>
+                    <p>🔥 2: 1080p Hoof</p>
+                </div>
+                <div class="char-card" data-char="butter">
+                    <h3>Butter Knife</h3>
+                    <p>🟡 Melts through enemies</p>
+                    <p>⚔️ 1: Melt Dash</p>
+                    <p>🔥 2: Spade Cleave</p>
+                </div>
+                <div class="char-card" data-char="cleaver">
+                    <h3>Meat Cleaver</h3>
+                    <p>🔴 Heavy Earthquake Tank</p>
+                    <p>⚔️ 1: Butcher Slam</p>
+                    <p>🔥 2: Bone Breaker</p>
+                </div>
+                <div class="char-card" data-char="whisk">
+                    <h3>Vortex Whisk</h3>
+                    <p>⚪ Crowd Magnet Swirls</p>
+                    <p>⚔️ 1: Batter Swirl</p>
+                    <p>🔥 2: Aerator Cyclone</p>
+                </div>
+                <div class="char-card" data-char="ladle">
+                    <h3>Cosmic Ladle</h3>
+                    <p>🔵 Shielding Defender</p>
+                    <p>⚔️ 1: Broth Shield</p>
+                    <p>🔥 2: Stew Meteor</p>
+                </div>
+            </div>
+            <p id="overlay-desc" style="font-size: 12px; color: #747d8c; text-align: center; max-width: 80%; margin: 5px 0;">
+                WASD / Arrows to Move. Combat skills trigger automatically on cooldown.<br>Exorcise Sporks and absorb their cursed energy.
+            </p>
+            <button id="start-btn" class="btn">DEPLOY TO ARENA</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const xpBar = document.getElementById('xp-bar');
+        const levelDisplay = document.getElementById('level-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const hpDisplay = document.getElementById('hp-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const screenOverlay = document.getElementById('screen-overlay');
